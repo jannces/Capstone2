@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Network Status — WiFi Admin Guardian{% endblock %}
+{% block content %}
+<style>
+  .pub-wrap  { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  .pub-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .pub-brand .name { font-weight: 700; letter-spacing: .4px; }
+  .pub-brand .sub  { font-size: .8rem; color: #7d93ab; }
+  .verdict { border-radius: 14px; padding: 26px 22px; text-align: center;
+             margin-bottom: 18px; border: 1px solid transparent; }
+  .verdict .v-icon  { font-size: 2.4rem; }
+  .verdict .v-title { font-size: 1.5rem; font-weight: 700; margin-top: 4px; }
+  .verdict .v-sub   { color: inherit; opacity: .85; font-size: .9rem; }
+  .verdict.safe    { background: rgba(55,232,163,.10); border-color: rgba(55,232,163,.4);  color: #37e8a3; }
+  .verdict.caution { background: rgba(255,180,84,.10); border-color: rgba(255,180,84,.4);  color: #ffb454; }
+  .verdict.danger  { background: rgba(255,93,93,.12);  border-color: rgba(255,93,93,.5);   color: #ff5d5d; }
+  .pub-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+               gap: 12px; margin-bottom: 18px; }
+  .pub-card  { background: #111e2e; border: 1px solid #1e3048; border-radius: 12px;
+               padding: 14px 16px; }
+  .pub-card .n { font-size: 1.5rem; font-weight: 700; }
+  .pub-card .l { font-size: .78rem; color: #7d93ab; text-transform: uppercase;
+                 letter-spacing: .5px; }
+  .pub-threats { background: #111e2e; border: 1px solid #1e3048; border-radius: 12px;
+                 padding: 16px; }
+  .pub-threats h6 { color: #7d93ab; font-size: .8rem; text-transform: uppercase;
+                    letter-spacing: .5px; }
+  .pub-foot { margin-top: 22px; text-align: center; font-size: .8rem; color: #7d93ab; }
+  .pub-foot a { color: #7d93ab; }
+  .sev-b { font-size: .72rem; padding: 2px 8px; border-radius: 8px; font-weight: 600; }
+  .sev-b.Critical { background: rgba(255,93,93,.18);  color: #ff5d5d; }
+  .sev-b.High     { background: rgba(255,141,93,.18); color: #ff8d5d; }
+  .sev-b.Medium   { background: rgba(255,180,84,.18); color: #ffb454; }
+  .sev-b.Low      { background: rgba(55,232,163,.18); color: #37e8a3; }
+</style>
+
+<div class="pub-wrap">
+  <div class="pub-brand">
+    <span class="pulse-dot"></span>
+    <div>
+      <div class="name">WiFi Admin Guardian</div>
+      <div class="sub">Public network safety report — updates automatically</div>
+    </div>
+  </div>
+
+  <div class="verdict safe" id="verdict">
+    <div class="v-icon"><i class="bi bi-hourglass-split" id="vIcon"></i></div>
+    <div class="v-title" id="vTitle">Checking…</div>
+    <div class="v-sub" id="vSub">Contacting the network monitor</div>
+  </div>
+
+  <div class="pub-cards">
+    <div class="pub-card"><div class="n" id="cOnline">–</div><div class="l">Devices online</div></div>
+    <div class="pub-card"><div class="n" id="cThreats">–</div><div class="l">Active threats</div></div>
+    <div class="pub-card"><div class="n" id="cMonitor">–</div><div class="l">Monitoring</div></div>
+  </div>
+
+  <div class="pub-threats">
+    <h6>Active threats</h6>
+    <div id="threatRows" class="mono" style="font-size:.85rem"></div>
+  </div>
+
+  <div class="pub-foot">
+    <span id="clock"></span> ·
+    <a href="{{ url_for('auth.login') }}">Administrator sign-in</a>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const V = {
+    safe:    { icon: "bi bi-shield-check", title: "Network is SAFE",
+               sub: "No active threats detected on this WiFi." },
+    caution: { icon: "bi bi-shield-exclamation", title: "CAUTION",
+               sub: "Minor suspicious activity detected — the administrator has been alerted." },
+    danger:  { icon: "bi bi-shield-x", title: "THREATS DETECTED",
+               sub: "Avoid logging into sensitive accounts until the administrator resolves this." },
+  };
+
+  async function refresh() {
+    try {
+      const r = await fetch("/api/public/summary");
+      if (!r.ok) return;
+      const s = await r.json();
+
+      const v = V[s.verdict] || V.safe;
+      $("#verdict").className = "verdict " + s.verdict;
+      $("#vIcon").className = v.icon;
+      $("#vTitle").textContent = v.title;
+      $("#vSub").textContent = v.sub;
+
+      const t = s.active_threats;
+      const total = t.Critical + t.High + t.Medium + t.Low;
+      $("#cOnline").textContent = s.devices.online;
+      $("#cThreats").textContent = total;
+      $("#cMonitor").textContent = s.monitoring ? "ON" : "PAUSED";
+      $("#clock").textContent = "Server time " + s.server_time;
+
+      const rows = $("#threatRows");
+      rows.replaceChildren();
+      if (!s.recent.length) {
+        const d = document.createElement("div");
+        d.style.color = "#7d93ab";
+        d.textContent = "None — all clear.";
+        rows.appendChild(d);
+      }
+      s.recent.forEach((th) => {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;gap:10px;align-items:center;padding:5px 0;";
+        const sev = document.createElement("span");
+        sev.className = "sev-b " + th.severity;
+        sev.textContent = th.severity;
+        const type = document.createElement("span");
+        type.textContent = th.threat_type;
+        const ts = document.createElement("span");
+        ts.style.cssText = "margin-left:auto;color:#7d93ab;font-size:.78rem;";
+        ts.textContent = th.ts;
+        row.append(sev, type, ts);
+        rows.appendChild(row);
+      });
+    } catch (e) { /* monitor unreachable — keep last state */ }
+  }
+
+  refresh();
+  setInterval(refresh, 5000);
+})();
+</script>
+{% endblock %}

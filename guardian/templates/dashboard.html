@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — WiFi Admin Guardian{% endblock %}
+{% block content %}
+<div class="layout">
+
+  <!-- ── Sidebar: network information ─────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="brand mb-4">
+      <span class="pulse-dot" id="scanDot"></span>
+      <div>
+        <div class="brand-name">WiFi Admin<br>Guardian</div>
+      </div>
+    </div>
+
+    <div class="net-info">
+      <div class="net-label">Network Information</div>
+      <dl>
+        <dt>Interface</dt><dd id="niIface">{{ net.interface or '—' }}</dd>
+        <dt>Local IP</dt><dd class="mono">{{ net.local_ip or '—' }}</dd>
+        <dt>Local MAC</dt><dd class="mono">{{ net.local_mac or '—' }}</dd>
+        <dt>Gateway IP</dt><dd class="mono">{{ net.gateway_ip or '—' }}</dd>
+        <dt>Gateway MAC</dt><dd class="mono">{{ net.gateway_mac or '—' }}</dd>
+        <dt>Subnet</dt><dd class="mono">{{ net.subnet or '—' }}</dd>
+        <dt>Capture</dt>
+        <dd>{% if net.scapy_ok %}<span class="tag tag-ok">Scapy + Npcap</span>
+            {% else %}<span class="tag tag-warn">Ping fallback</span>{% endif %}</dd>
+      </dl>
+    </div>
+
+    <div class="net-info mt-3">
+      <div class="net-label">Packets Analyzed</div>
+      <div class="pkt-counter mono" id="pktCounter">0</div>
+      <div class="pkt-sub" id="pktBreakdown">ARP 0 · TCP 0 · DHCP 0 · mDNS 0</div>
+    </div>
+
+    <div class="sidebar-foot">
+      <span id="serverClock" class="mono"></span>
+    </div>
+  </aside>
+
+  <!-- ── Main ──────────────────────────────────────────────────────── -->
+  <main class="main">
+    <header class="topbar">
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-sm btn-outline-light d-lg-none" onclick="document.querySelector('.sidebar').classList.toggle('open')"><i class="bi bi-list"></i></button>
+        <h1 class="page-title">Security Dashboard</h1>
+        <span class="tag" id="monitorTag"><i class="bi bi-broadcast"></i> monitoring</span>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-light" id="alarmToggle" title="Toggle audible alarm">
+          <i class="bi bi-volume-up" id="alarmIcon"></i>
+        </button>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-light dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-person-circle"></i> {{ admin }}
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="#settings" onclick="showTab('settings')">Settings</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <form method="post" action="{{ url_for('auth.logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf }}">
+                <button class="dropdown-item" type="submit">Log out</button>
+              </form>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </header>
+
+    <!-- summary cards -->
+    <section class="cards">
+      <div class="card-g"><div class="card-num" id="cDevices">0</div><div class="card-lbl">Devices online</div><div class="card-sub" id="cDevicesSub">0 total · 0 offline</div></div>
+      <div class="card-g sev-critical"><div class="card-num" id="cCritical">0</div><div class="card-lbl">Critical threats</div><div class="card-sub">active, unresolved</div></div>
+      <div class="card-g sev-medium"><div class="card-num" id="cMedium">0</div><div class="card-lbl">Medium threats</div><div class="card-sub">active, unresolved</div></div>
+      <div class="card-g"><div class="card-num" id="cPackets">0</div><div class="card-lbl">Packets analyzed</div><div class="card-sub">since startup</div></div>
+    </section>
+
+    <!-- tabs -->
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="devices">Devices <span class="badge-mini" id="bDevices"></span></button>
+      <button class="tab" data-tab="threats">Threats <span class="badge-mini badge-threat" id="bThreats"></span></button>
+      <button class="tab" data-tab="logs">Logs</button>
+      <button class="tab" data-tab="reports">Reports</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <!-- ── Overview ── -->
+    <section class="panel" id="tab-overview">
+      <div class="row g-3">
+        <div class="col-lg-7">
+          <div class="chart-card">
+            <div class="chart-title">Threat timeline — last 24 h</div>
+            <canvas id="chartTimeline" height="120"></canvas>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="chart-card">
+            <div class="chart-title">Severity distribution</div>
+            <canvas id="chartSeverity" height="120"></canvas>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="chart-card">
+            <div class="chart-title">Recent activity</div>
+            <ul class="feed" id="activityFeed"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Devices ── -->
+    <section class="panel d-none" id="tab-devices">
+      <div class="toolbar">
+        <input class="form-control form-control-sm search" id="devSearch"
+               placeholder="Search IP / MAC / hostname / vendor…">
+        <select class="form-select form-select-sm" id="devStatus">
+          <option value="">All statuses</option>
+          <option value="online">Online</option>
+          <option value="offline">Offline</option>
+        </select>
+        <button class="btn btn-sm btn-outline-light ms-auto" id="clearOffline">
+          <i class="bi bi-trash"></i> Clear offline
+        </button>
+        <button class="btn btn-sm btn-outline-danger" id="clearAll">
+          Clear all
+        </button>
+      </div>
+      <div class="table-wrap">
+        <table class="table table-g">
+          <thead><tr>
+            <th>Status</th><th>IP address</th><th>MAC address</th>
+            <th>Hostname</th><th>Vendor</th><th>First seen</th>
+            <th>Last seen</th><th>Online time</th>
+          </tr></thead>
+          <tbody id="devBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Threats ── -->
+    <section class="panel d-none" id="tab-threats">
+      <div class="toolbar">
+        <input class="form-control form-control-sm search" id="thSearch" placeholder="Search IP / MAC / description…">
+        <select class="form-select form-select-sm" id="thType">
+          <option value="">All types</option>
+          <option>MITM</option><option>ARP Poisoning</option>
+          <option>MAC Spoofing</option><option>Port Scanning</option>
+          <option>Rogue DHCP</option>
+        </select>
+        <select class="form-select form-select-sm" id="thSeverity">
+          <option value="">All severities</option>
+          <option>Critical</option><option>High</option>
+          <option>Medium</option><option>Low</option>
+        </select>
+        <select class="form-select form-select-sm" id="thStatus">
+          <option value="">All statuses</option>
+          <option>New</option><option>Acknowledged</option>
+          <option>Resolved</option><option>False Positive</option>
+        </select>
+        <input class="form-control form-control-sm" type="date" id="thFrom" title="From date">
+        <input class="form-control form-control-sm" type="date" id="thTo" title="To date">
+      </div>
+      <div id="threatList" class="threat-list"></div>
+    </section>
+
+    <!-- ── Logs ── -->
+    <section class="panel d-none" id="tab-logs">
+      <div class="toolbar">
+        <select class="form-select form-select-sm" id="logKind">
+          <option value="connection">Connection log</option>
+          <option value="admin">Administrator log</option>
+        </select>
+        <input class="form-control form-control-sm search" id="logSearch" placeholder="Search…">
+      </div>
+      <div class="table-wrap">
+        <table class="table table-g">
+          <thead id="logHead"></thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Reports ── -->
+    <section class="panel d-none" id="tab-reports">
+      <div class="row g-3">
+        {% for rt, label, desc in [
+            ('threat','Threat Report','All detected threats with severity, evidence and mitigation.'),
+            ('connection','Connection Report','Device connect / disconnect / reconnect history.'),
+            ('device','Device Report','Every known device with vendor, status and online time.'),
+            ('security','Security Summary','High-level counts for auditing and documentation.')] %}
+        <div class="col-md-6">
+          <div class="report-card">
+            <div class="report-name">{{ label }}</div>
+            <div class="report-desc">{{ desc }}</div>
+            <div class="d-flex gap-2 mt-2">
+              <a class="btn btn-sm btn-guardian" href="/reports/export/{{ rt }}/csv"><i class="bi bi-filetype-csv"></i> CSV</a>
+              <a class="btn btn-sm btn-outline-light" href="/reports/export/{{ rt }}/pdf"><i class="bi bi-filetype-pdf"></i> PDF</a>
+              <button class="btn btn-sm btn-outline-light" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        <div class="col-12">
+          <div class="chart-card">
+            <div class="chart-title">Export history</div>
+            <div class="table-wrap">
+              <table class="table table-g">
+                <thead><tr><th>Time</th><th>Report</th><th>Format</th><th>File</th><th>By</th></tr></thead>
+                <tbody id="repBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Settings ── -->
+    <section class="panel d-none" id="tab-settings">
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="chart-card">
+            <div class="chart-title">Monitoring</div>
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="setScan" checked>
+              <label class="form-check-label" for="setScan">Monitoring active</label>
+            </div>
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="setAlarm">
+              <label class="form-check-label" for="setAlarm">Audible alarm on threats</label>
+            </div>
+            <label class="form-label">Liveness probe interval (seconds)</label>
+            <input class="form-control mb-3" type="number" min="1" max="60" id="setProbe">
+            <label class="form-label">Missed probes before offline</label>
+            <input class="form-control mb-3" type="number" min="1" max="10" id="setMiss">
+            <button class="btn btn-guardian" id="saveSettings">Save settings</button>
+            <div class="hint mt-2">Disconnect detection ≈ interval × misses.
+              Default 3 s × 2 ≈ 6–10 s. Raise misses to 3 on lossy Wi-Fi.</div>
+          </div>
+          <div class="chart-card mt-3">
+            <div class="chart-title">Performance metrics</div>
+            <dl class="metrics" id="metricsBox"></dl>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="chart-card">
+            <div class="chart-title">Change password</div>
+            <form method="post" action="{{ url_for('auth.change_password') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf }}">
+              <label class="form-label">Current password</label>
+              <input class="form-control mb-3" type="password" name="current_password" required>
+              <label class="form-label">New password (min 8 chars)</label>
+              <input class="form-control mb-3" type="password" name="new_password" minlength="8" required>
+              <label class="form-label">Confirm new password</label>
+              <input class="form-control mb-3" type="password" name="confirm_password" minlength="8" required>
+              <button class="btn btn-guardian" type="submit">Change password</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- threat popup -->
+<div class="threat-popup d-none" id="threatPopup">
+  <div class="tp-head"><i class="bi bi-exclamation-octagon-fill"></i>
+    <span id="tpTitle">Threat detected</span>
+    <button class="btn-close btn-close-white ms-auto" onclick="hidePopup()"></button>
+  </div>
+  <div class="tp-body" id="tpBody"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/socket.io.min.js') }}"></script>
+<script>window.ALARM_DEFAULT = {{ '1' if alarm == '1' else '0' }};</script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}
