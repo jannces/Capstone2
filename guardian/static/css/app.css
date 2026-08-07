@@ -1,0 +1,177 @@
+/* ── WiFi Admin Guardian — ops-console theme ─────────────────────────
+   Palette
+   --ink        #0b1420   deep harbor ink (page)
+   --panel      #111e2e   raised panel
+   --line       #1e3048   hairline borders
+   --signal     #37e8a3   signal green (online / ok)
+   --amber      #ffb454   caution
+   --alarm      #ff5d5d   critical
+   --text       #d7e3f0   body
+   --dim        #7d93ab   secondary
+------------------------------------------------------------------------*/
+:root{
+  --ink:#0b1420; --panel:#111e2e; --line:#1e3048;
+  --signal:#37e8a3; --amber:#ffb454; --alarm:#ff5d5d;
+  --text:#d7e3f0; --dim:#7d93ab;
+  --mono:"Cascadia Code","JetBrains Mono",Consolas,monospace;
+}
+html,body{background:var(--ink);color:var(--text);
+  font-family:"Segoe UI",system-ui,sans-serif;}
+.mono{font-family:var(--mono);font-size:.86em;letter-spacing:.02em;}
+
+/* layout */
+.layout{display:flex;min-height:100vh;}
+.sidebar{width:250px;flex:0 0 250px;background:var(--panel);
+  border-right:1px solid var(--line);padding:20px 18px;
+  display:flex;flex-direction:column;}
+.main{flex:1;padding:20px 26px;min-width:0;}
+@media(max-width:991px){
+  .sidebar{position:fixed;z-index:1040;height:100vh;left:-260px;transition:left .2s;}
+  .sidebar.open{left:0;}
+}
+
+/* brand + signature pulse */
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-name{font-weight:700;line-height:1.15;letter-spacing:.03em;}
+.brand-sub{color:var(--dim);font-size:.78rem;}
+.pulse-dot{width:12px;height:12px;border-radius:50%;background:var(--signal);
+  position:relative;flex:0 0 12px;}
+.pulse-dot::after{content:'';position:absolute;inset:-6px;border-radius:50%;
+  border:2px solid var(--signal);animation:pulse 2s ease-out infinite;}
+.pulse-dot.paused{background:var(--amber);}
+.pulse-dot.paused::after{border-color:var(--amber);animation:none;}
+@keyframes pulse{0%{transform:scale(.4);opacity:.9}100%{transform:scale(1.4);opacity:0}}
+@media(prefers-reduced-motion:reduce){.pulse-dot::after{animation:none}}
+
+/* sidebar net info */
+.net-info{background:var(--ink);border:1px solid var(--line);
+  border-radius:8px;padding:12px;}
+.net-label{color:var(--dim);font-size:.7rem;text-transform:uppercase;
+  letter-spacing:.14em;margin-bottom:8px;}
+.net-info dl{margin:0;}
+.net-info dt{color:var(--dim);font-size:.7rem;font-weight:500;margin-top:6px;}
+.net-info dd{margin:0;font-size:.82rem;word-break:break-all;}
+.pkt-counter{font-size:1.5rem;color:var(--signal);}
+.pkt-sub{color:var(--dim);font-size:.72rem;}
+.sidebar-foot{margin-top:auto;color:var(--dim);font-size:.75rem;padding-top:14px;}
+
+/* topbar */
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.page-title{font-size:1.15rem;font-weight:600;margin:0;}
+.tag{border:1px solid var(--line);border-radius:20px;padding:2px 10px;
+  font-size:.72rem;color:var(--dim);}
+.tag-ok{color:var(--signal);border-color:var(--signal);}
+.tag-warn{color:var(--amber);border-color:var(--amber);}
+.tag-danger{color:var(--alarm);border-color:var(--alarm);}
+
+/* summary cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:14px;margin-bottom:18px;}
+.card-g{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:14px 16px;border-left:3px solid var(--signal);}
+.card-g.sev-critical{border-left-color:var(--alarm);}
+.card-g.sev-medium{border-left-color:var(--amber);}
+.card-num{font-family:var(--mono);font-size:1.7rem;font-weight:600;}
+.card-lbl{font-size:.8rem;color:var(--dim);}
+.card-sub{font-size:.7rem;color:var(--dim);opacity:.8;}
+.card-g.flash{animation:cardflash .8s;}
+@keyframes cardflash{0%{background:#3a1620}100%{background:var(--panel)}}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;
+  overflow-x:auto;}
+.tab{background:none;border:none;color:var(--dim);padding:8px 14px;
+  font-size:.85rem;border-bottom:2px solid transparent;white-space:nowrap;}
+.tab.active{color:var(--text);border-bottom-color:var(--signal);}
+.badge-mini{font-family:var(--mono);font-size:.68rem;background:var(--line);
+  border-radius:10px;padding:1px 7px;margin-left:4px;}
+.badge-threat{background:var(--alarm);color:#fff;}
+
+/* panels / cards */
+.chart-card,.report-card{background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;padding:16px;}
+.chart-title{font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--dim);margin-bottom:12px;}
+.report-name{font-weight:600;}
+.report-desc{color:var(--dim);font-size:.82rem;}
+.hint{color:var(--dim);font-size:.75rem;}
+
+/* toolbar + tables */
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.toolbar .search{max-width:280px;}
+.toolbar .form-select,.toolbar input[type=date]{max-width:170px;}
+.table-wrap{background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;overflow:auto;max-height:60vh;}
+.table-g{margin:0;font-size:.82rem;}
+.table-g th{position:sticky;top:0;background:var(--panel);color:var(--dim);
+  font-weight:500;font-size:.72rem;text-transform:uppercase;
+  letter-spacing:.08em;border-bottom:1px solid var(--line);}
+.table-g td{border-color:var(--line);vertical-align:middle;}
+.st-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+.st-online .st-dot{background:var(--signal);box-shadow:0 0 6px var(--signal);}
+.st-offline .st-dot{background:#44566b;}
+.st-online{color:var(--signal);} .st-offline{color:var(--dim);}
+
+/* threat list */
+.threat-list{display:flex;flex-direction:column;gap:10px;}
+.threat-item{background:var(--panel);border:1px solid var(--line);
+  border-left:4px solid var(--amber);border-radius:10px;padding:12px 16px;}
+.threat-item.sev-Critical{border-left-color:var(--alarm);}
+.threat-item.sev-High{border-left-color:#ff8d5d;}
+.threat-item.sev-Low{border-left-color:var(--signal);}
+.threat-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.sev-pill{font-size:.68rem;font-weight:700;padding:2px 9px;border-radius:12px;
+  text-transform:uppercase;letter-spacing:.06em;}
+.sev-pill.Critical{background:var(--alarm);color:#fff;}
+.sev-pill.High{background:#ff8d5d;color:#241108;}
+.sev-pill.Medium{background:var(--amber);color:#241a08;}
+.sev-pill.Low{background:var(--signal);color:#06281c;}
+.threat-desc{font-size:.86rem;margin:6px 0;}
+.threat-meta{font-size:.74rem;color:var(--dim);}
+.threat-mit{font-size:.78rem;color:var(--signal);margin-top:4px;}
+.threat-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.status-chip{font-size:.7rem;border:1px solid var(--line);border-radius:12px;
+  padding:2px 10px;color:var(--dim);}
+.status-chip.New{border-color:var(--alarm);color:var(--alarm);}
+.status-chip.Acknowledged{border-color:var(--amber);color:var(--amber);}
+.status-chip.Resolved{border-color:var(--signal);color:var(--signal);}
+
+/* activity feed */
+.feed{list-style:none;margin:0;padding:0;max-height:280px;overflow:auto;}
+.feed li{padding:7px 0;border-bottom:1px solid var(--line);font-size:.82rem;
+  display:flex;gap:10px;}
+.feed .t{color:var(--dim);font-family:var(--mono);font-size:.72rem;
+  flex:0 0 62px;padding-top:2px;}
+
+/* metrics */
+.metrics{display:grid;grid-template-columns:1fr auto;gap:4px 16px;margin:0;}
+.metrics dt{color:var(--dim);font-weight:400;font-size:.82rem;}
+.metrics dd{font-family:var(--mono);text-align:right;margin:0;}
+
+/* buttons */
+.btn-guardian{background:var(--signal);border:none;color:#06281c;font-weight:600;}
+.btn-guardian:hover{background:#2bd190;color:#06281c;}
+
+/* threat popup */
+.threat-popup{position:fixed;right:20px;bottom:20px;width:340px;z-index:2000;
+  background:#2a0f16;border:1px solid var(--alarm);border-radius:12px;
+  box-shadow:0 10px 40px rgba(0,0,0,.6);overflow:hidden;}
+.tp-head{display:flex;align-items:center;gap:8px;background:var(--alarm);
+  color:#fff;font-weight:700;padding:8px 12px;font-size:.86rem;}
+.tp-body{padding:12px;font-size:.82rem;}
+
+/* login */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.login-card{width:360px;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:28px;}
+.login-card .brand{margin-bottom:22px;}
+.login-foot{margin-top:16px;color:var(--dim);font-size:.72rem;text-align:center;}
+
+.flash-stack{position:fixed;top:14px;left:50%;transform:translateX(-50%);
+  z-index:3000;width:min(480px,90vw);}
+
+@media print{
+  .sidebar,.topbar,.tabs,.toolbar,.threat-actions,.threat-popup{display:none!important;}
+  html,body{background:#fff;color:#000;}
+  .panel.d-none{display:block!important;}
+}
