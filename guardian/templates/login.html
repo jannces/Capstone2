@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Sign in — WiFi Admin Guardian{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="brand">
+      <span class="pulse-dot"></span>
+      <div>
+        <div class="brand-name">WiFi Admin Guardian</div>
+        <div class="brand-sub">Public Wi-Fi Threat Detection &amp; Mitigation</div>
+      </div>
+    </div>
+    <form method="post" action="{{ url_for('auth.login') }}" autocomplete="off">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <label class="form-label">Username</label>
+      <input class="form-control mb-3" name="username" required autofocus>
+      <label class="form-label">Password</label>
+      <input class="form-control mb-4" type="password" name="password" required>
+      <button class="btn btn-guardian w-100" type="submit">
+        <i class="bi bi-shield-lock"></i> Sign in
+      </button>
+    </form>
+    <div class="login-foot">Administrator access only. All logins are recorded.</div>
+  </div>
+</div>
+{% endblock %}
